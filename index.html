@@ -43,7 +43,7 @@
             overflow-x: hidden;
         }
 
-        /* ── NOISE OVERLAY ─────────────────── */
+       
         body::before {
             content: '';
             position: fixed;
@@ -54,7 +54,7 @@
             opacity: .5;
         }
 
-        /* ── LAYOUT ────────────────────────── */
+        
         .pagina {
             max-width: 1200px;
             margin: 0 auto;
@@ -64,7 +64,7 @@
             gap: 28px;
         }
 
-        /* ── HEADER ────────────────────────── */
+       
         .topo {
             display: flex;
             align-items: flex-end;
@@ -116,7 +116,7 @@
             color: var(--accent);
         }
 
-        /* Status badge */
+        
         .status-badge {
             display: flex;
             align-items: center;
@@ -147,7 +147,7 @@
             50%      { box-shadow: 0 0 0 6px rgba(248,81,73,0); }
         }
 
-        /* ── MAPA ──────────────────────────── */
+       
         .mapa-section {
             background: var(--bg2);
             border: 1px solid var(--border);
@@ -271,7 +271,7 @@
 
         @keyframes spin { to { transform: rotate(360deg); } }
 
-        /* ── CARDS ─────────────────────────── */
+        
         .cards-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
@@ -334,7 +334,7 @@
             font-family: 'DM Mono', monospace;
         }
 
-        /* NDVI pill */
+     
         .ndvi-pill {
             display: inline-flex;
             align-items: center;
@@ -368,7 +368,6 @@
             transition: width 1.2s cubic-bezier(.22,.61,.36,1), background .4s;
         }
 
-        /* ── FASE ──────────────────────────── */
         .fase-section {
             animation: fadeUp .6s .2s ease both;
         }
@@ -424,7 +423,7 @@
             display: none;
         }
 
-        /* ── ALERTAS ───────────────────────── */
+        
         .alertas-section {
             animation: fadeUp .6s .3s ease both;
         }
@@ -463,7 +462,7 @@
 
         .alerta-icone { font-size: 16px; flex-shrink: 0; margin-top: 1px; }
 
-        /* ── FOOTER ────────────────────────── */
+        
         .rodape {
             text-align: center;
             font-family: 'DM Mono', monospace;
@@ -473,7 +472,7 @@
             border-top: 1px solid var(--border);
         }
 
-        /* ── RESPONSIVE ─────────────────────── */
+        
         @media (max-width: 600px) {
             .pagina { padding: 20px 16px 48px; gap: 20px; }
             #map { height: 280px; }
@@ -485,14 +484,14 @@
 <body>
 <main class="pagina">
 
-    <!-- HEADER -->
+    
     <header class="topo">
         <div>
             <div class="topo-eyebrow">
                 <div class="pulse-dot"></div>
-                <span class="topo-tag">NDVI · AO VIVO</span>
+                <span class="topo-tag">NDVI </span>
             </div>
-            <h1 class="topo-titulo">Monitor de <em>Lavoura</em></h1>
+            <h1 class="topo-titulo">Monitor de Lavoura></h1>
         </div>
         <div class="status-badge" id="status-geral">
             <span class="dot"></span>
@@ -500,7 +499,7 @@
         </div>
     </header>
 
-    <!-- MAPA -->
+    
     <section class="mapa-section">
         <div class="mapa-header">
             <div>
@@ -526,10 +525,10 @@
         </div>
     </section>
 
-    <!-- CARDS -->
+
     <section class="cards-grid">
 
-        <!-- NDVI -->
+       
         <div class="card">
             <span class="card-eyebrow">Vegetação</span>
             <span class="card-title">Índice NDVI</span>
@@ -540,7 +539,7 @@
             </div>
         </div>
 
-        <!-- TEMPERATURA -->
+        
         <div class="card">
             <span class="card-eyebrow">Clima</span>
             <span class="card-title">Temperatura</span>
@@ -548,7 +547,7 @@
             <span class="card-sub">mín · máx °C</span>
         </div>
 
-        <!-- CHUVA -->
+        
         <div class="card">
             <span class="card-eyebrow">Precipitação</span>
             <span class="card-title">Chuva Acumulada</span>
@@ -556,7 +555,6 @@
             <span class="card-sub">milímetros no período</span>
         </div>
 
-        <!-- SOLO -->
         <div class="card">
             <span class="card-eyebrow">Solo</span>
             <span class="card-title">Umidade do Solo</span>
@@ -566,7 +564,7 @@
 
     </section>
 
-    <!-- FASE DA LAVOURA -->
+    
     <section class="fase-section">
         <div class="fase-box">
             <span class="fase-label-txt">Fase atual da lavoura</span>
@@ -582,7 +580,7 @@
         </div>
     </section>
 
-    <!-- ALERTAS -->
+    
     <section class="alertas-section">
         <h2 class="alertas-header">Diagnóstico</h2>
         <div id="alerta"></div>
@@ -598,7 +596,7 @@
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="Main.js"></script>
 <script>
-    /* ── Fase da lavoura ─────────────────────────────── */
+   
   const faseInfo = {
     floracao:      'Período crítico: evite estresse hídrico. Ideal 18–23 °C.',
     frutificacao:  'Demanda hídrica alta. Monitore solo diariamente.',
@@ -704,7 +702,7 @@ function gerarAlertasFase(fase) {
             alertas.push({ tipo: 'ok', icone: '✅', msg: `Pós-colheita: NDVI (${ndviVal.toFixed(2)}) indica boa reserva vegetativa para o próximo ciclo.` });
     }
 
-    // Insere no topo do diagnóstico
+    
     const separador = document.createElement('div');
     separador.className = 'alerta-item alerta-warn alerta-fase';
     separador.style.cssText = 'font-size:11px; opacity:.7; padding: 6px 18px;';
@@ -730,8 +728,7 @@ document.getElementById('faseLavoura').addEventListener('change', e => {
         return;
     }
 
-    // Se os dados já estão prontos, gera na hora
-    // Se não, aguarda o evento
+    
     if (window.appData) {
         gerarAlertasFase(fase);
     } else {
@@ -739,15 +736,14 @@ document.getElementById('faseLavoura').addEventListener('change', e => {
     }
 });
 
-    /* ── appDataReady ────────────────────────────────── */
+  
     document.addEventListener('appDataReady', () => {
         const { ndvi, clima } = window.appData;
 
-        // Esconde loading do mapa
+     
         const loading = document.getElementById('mapaLoading');
         if (loading) loading.style.display = 'none';
 
-        /* ── CARD NDVI ──────────── */
         if (ndvi) {
             const v = ndvi.mediaNdvi;
 
@@ -755,13 +751,13 @@ document.getElementById('faseLavoura').addEventListener('change', e => {
             const el = document.getElementById('ndvi-valor');
             if (el) el.textContent = v.toFixed(3);
 
-            // Badge no mapa
+    
             const bv = document.getElementById('ndvi-badge-valor');
             if (bv) bv.textContent = v.toFixed(2);
             const badge = document.getElementById('ndvi-badge');
             if (badge) badge.style.display = 'flex';
 
-            // Pill de saúde
+           
             const pill = document.getElementById('ndvi-pill');
             if (pill) {
                 let cls, label;
@@ -771,7 +767,7 @@ document.getElementById('faseLavoura').addEventListener('change', e => {
                 pill.innerHTML = `<span class="ndvi-pill ${cls}">${label}</span>`;
             }
 
-            // Barra de progresso
+            
             const bar = document.getElementById('ndvi-bar');
             if (bar) {
                 const pct = Math.min(v * 100, 100);
@@ -780,7 +776,7 @@ document.getElementById('faseLavoura').addEventListener('change', e => {
                 bar.style.background = cor;
             }
 
-            // Cor do valor NDVI
+          
             if (el) {
                 el.style.color = v > 0.6 ? 'var(--ok)' : v >= 0.3 ? 'var(--warn)' : 'var(--danger)';
             }
@@ -789,7 +785,7 @@ document.getElementById('faseLavoura').addEventListener('change', e => {
             if (el) { el.textContent = 'N/D'; el.style.color = 'var(--txt3)'; }
         }
 
-        /* ── CARDS CLIMA ────────── */
+        
         if (clima) {
             const tMin = clima.ultimaTempMin ?? '--';
             const tMax = clima.ultimaTempMax ?? '--';
@@ -807,7 +803,7 @@ document.getElementById('faseLavoura').addEventListener('change', e => {
                     : '— %';
         }
 
-        /* ── STATUS GERAL ────────── */
+      
         const statusEl = document.getElementById('status-geral');
         const statusTxt = document.getElementById('status-txt');
         if (statusEl && statusTxt) {
