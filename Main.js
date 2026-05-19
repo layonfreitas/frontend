@@ -64,7 +64,7 @@ async function obterDadosCafe(lat, lon, data) {
 // ------------------------------------------------
 async function integrarDados() {
     try {
-        const response = await fetch('https://meu-api-earthengine.onrender.com', {
+        const response = await fetch('https://meu-api-earthengine.onrender.com/ndvi', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
