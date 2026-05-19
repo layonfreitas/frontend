@@ -1,0 +1,834 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Monitor de Lavoura — NDVI</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,600;1,9..144,300&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        :root {
+            --bg:         #0d1117;
+            --bg2:        #161b22;
+            --bg3:        #1c2330;
+            --border:     rgba(255,255,255,0.07);
+            --border-h:   rgba(255,255,255,0.14);
+            --txt:        #e6edf3;
+            --txt2:       #8b949e;
+            --txt3:       #484f58;
+            --ok:         #3fb950;
+            --ok-bg:      rgba(63,185,80,0.12);
+            --warn:       #d29922;
+            --warn-bg:    rgba(210,153,34,0.12);
+            --danger:     #f85149;
+            --danger-bg:  rgba(248,81,73,0.12);
+            --accent:     #58a6ff;
+            --accent-bg:  rgba(88,166,255,0.1);
+            --radius:     12px;
+            --radius-lg:  18px;
+        }
+
+        html { scroll-behavior: smooth; }
+
+        body {
+            background: var(--bg);
+            color: var(--txt);
+            font-family: 'DM Sans', sans-serif;
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        /* ── NOISE OVERLAY ─────────────────── */
+        body::before {
+            content: '';
+            position: fixed;
+            inset: 0;
+            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+            pointer-events: none;
+            z-index: 999;
+            opacity: .5;
+        }
+
+        /* ── LAYOUT ────────────────────────── */
+        .pagina {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 32px 24px 64px;
+            display: flex;
+            flex-direction: column;
+            gap: 28px;
+        }
+
+        /* ── HEADER ────────────────────────── */
+        .topo {
+            display: flex;
+            align-items: flex-end;
+            justify-content: space-between;
+            gap: 16px;
+            flex-wrap: wrap;
+            padding-bottom: 28px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .topo-eyebrow {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 8px;
+        }
+
+        .pulse-dot {
+            width: 8px; height: 8px;
+            background: var(--ok);
+            border-radius: 50%;
+            animation: pulse 2s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+            0%,100% { box-shadow: 0 0 0 0 rgba(63,185,80,.6); }
+            50%      { box-shadow: 0 0 0 6px rgba(63,185,80,0); }
+        }
+
+        .topo-tag {
+            font-family: 'DM Mono', monospace;
+            font-size: 11px;
+            letter-spacing: .12em;
+            text-transform: uppercase;
+            color: var(--txt2);
+        }
+
+        .topo-titulo {
+            font-family: 'Fraunces', serif;
+            font-size: clamp(28px, 4vw, 42px);
+            font-weight: 300;
+            letter-spacing: -.02em;
+            color: var(--txt);
+            line-height: 1.1;
+        }
+
+        .topo-titulo em {
+            font-style: italic;
+            color: var(--accent);
+        }
+
+        /* Status badge */
+        .status-badge {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 18px;
+            border-radius: 100px;
+            border: 1px solid var(--border);
+            background: var(--bg2);
+            font-size: 13px;
+            font-weight: 500;
+            transition: all .4s ease;
+        }
+        .status-badge .dot {
+            width: 8px; height: 8px;
+            border-radius: 50%;
+            background: var(--txt3);
+            transition: background .4s;
+        }
+        .status-badge.ok   { border-color: rgba(63,185,80,.3);  background: var(--ok-bg);     color: var(--ok); }
+        .status-badge.ok .dot   { background: var(--ok); box-shadow: 0 0 8px var(--ok); }
+        .status-badge.warn { border-color: rgba(210,153,34,.3); background: var(--warn-bg);   color: var(--warn); }
+        .status-badge.warn .dot { background: var(--warn); box-shadow: 0 0 8px var(--warn); }
+        .status-badge.danger{ border-color: rgba(248,81,73,.3); background: var(--danger-bg); color: var(--danger); }
+        .status-badge.danger .dot{ background: var(--danger); box-shadow: 0 0 8px var(--danger); animation: pulse-r 1s infinite; }
+
+        @keyframes pulse-r {
+            0%,100% { box-shadow: 0 0 0 0 rgba(248,81,73,.6); }
+            50%      { box-shadow: 0 0 0 6px rgba(248,81,73,0); }
+        }
+
+        /* ── MAPA ──────────────────────────── */
+        .mapa-section {
+            background: var(--bg2);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-lg);
+            overflow: hidden;
+            animation: fadeUp .6s ease both;
+        }
+
+        @keyframes fadeUp {
+            from { opacity:0; transform: translateY(16px); }
+            to   { opacity:1; transform: translateY(0); }
+        }
+
+        .mapa-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 12px;
+            padding: 20px 24px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .mapa-titulo {
+            font-family: 'Fraunces', serif;
+            font-weight: 300;
+            font-size: 18px;
+            color: var(--txt);
+        }
+
+        .mapa-sub {
+            font-size: 12px;
+            color: var(--txt2);
+            margin-top: 2px;
+            font-family: 'DM Mono', monospace;
+        }
+
+        .mapa-legenda {
+            display: flex;
+            gap: 16px;
+            flex-wrap: wrap;
+        }
+
+        .legenda-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 11px;
+            color: var(--txt2);
+            font-family: 'DM Mono', monospace;
+        }
+
+        .legenda-cor {
+            width: 10px; height: 10px;
+            border-radius: 3px;
+            flex-shrink: 0;
+        }
+
+        .mapa-wrap {
+            position: relative;
+        }
+
+        #map {
+            width: 100%;
+            height: 380px;
+        }
+
+        .mapa-badge {
+            position: absolute;
+            top: 16px; right: 16px;
+            background: rgba(13,17,23,.85);
+            backdrop-filter: blur(12px);
+            border: 1px solid var(--border-h);
+            border-radius: var(--radius);
+            padding: 12px 18px;
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            z-index: 400;
+        }
+
+        .badge-label {
+            font-family: 'DM Mono', monospace;
+            font-size: 9px;
+            letter-spacing: .15em;
+            color: var(--txt2);
+            text-transform: uppercase;
+        }
+
+        .badge-valor {
+            font-family: 'Fraunces', serif;
+            font-size: 28px;
+            font-weight: 600;
+            color: var(--accent);
+            line-height: 1.1;
+        }
+
+        .mapa-loading {
+            position: absolute;
+            inset: 0;
+            background: rgba(13,17,23,.7);
+            backdrop-filter: blur(6px);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            z-index: 500;
+            font-family: 'DM Mono', monospace;
+            font-size: 12px;
+            color: var(--txt2);
+        }
+
+        .spinner {
+            width: 28px; height: 28px;
+            border: 2px solid var(--border);
+            border-top-color: var(--accent);
+            border-radius: 50%;
+            animation: spin .8s linear infinite;
+        }
+
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* ── CARDS ─────────────────────────── */
+        .cards-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 16px;
+            animation: fadeUp .6s .1s ease both;
+        }
+
+        .card {
+            background: var(--bg2);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-lg);
+            padding: 22px 24px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            transition: border-color .3s, transform .3s;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .card::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: radial-gradient(ellipse at top left, rgba(88,166,255,.04), transparent 60%);
+            pointer-events: none;
+        }
+
+        .card:hover {
+            border-color: var(--border-h);
+            transform: translateY(-2px);
+        }
+
+        .card-eyebrow {
+            font-family: 'DM Mono', monospace;
+            font-size: 10px;
+            letter-spacing: .14em;
+            text-transform: uppercase;
+            color: var(--txt3);
+        }
+
+        .card-title {
+            font-size: 13px;
+            color: var(--txt2);
+            font-weight: 400;
+        }
+
+        .card-valor {
+            font-family: 'Fraunces', serif;
+            font-size: 32px;
+            font-weight: 300;
+            color: var(--txt);
+            line-height: 1;
+            transition: color .4s;
+        }
+
+        .card-sub {
+            font-size: 11px;
+            color: var(--txt3);
+            font-family: 'DM Mono', monospace;
+        }
+
+        /* NDVI pill */
+        .ndvi-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            padding: 3px 10px;
+            border-radius: 100px;
+            font-size: 11px;
+            font-weight: 600;
+            font-family: 'DM Mono', monospace;
+            letter-spacing: .05em;
+            width: fit-content;
+        }
+        .ndvi-pill.ok     { background: var(--ok-bg);     color: var(--ok); }
+        .ndvi-pill.warn   { background: var(--warn-bg);   color: var(--warn); }
+        .ndvi-pill.danger { background: var(--danger-bg); color: var(--danger); }
+
+        /* Progress bar */
+        .ndvi-bar-wrap {
+            height: 4px;
+            background: var(--bg3);
+            border-radius: 2px;
+            overflow: hidden;
+            margin-top: 4px;
+        }
+
+        .ndvi-bar-fill {
+            height: 100%;
+            width: 0%;
+            border-radius: 2px;
+            background: var(--accent);
+            transition: width 1.2s cubic-bezier(.22,.61,.36,1), background .4s;
+        }
+
+        /* ── FASE ──────────────────────────── */
+        .fase-section {
+            animation: fadeUp .6s .2s ease both;
+        }
+
+        .fase-box {
+            background: var(--bg2);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-lg);
+            padding: 24px;
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            flex-wrap: wrap;
+        }
+
+        .fase-label-txt {
+            font-size: 13px;
+            color: var(--txt2);
+            font-weight: 500;
+            flex-shrink: 0;
+        }
+
+        select#faseLavoura {
+            appearance: none;
+            background: var(--bg3);
+            border: 1px solid var(--border);
+            color: var(--txt);
+            border-radius: 10px;
+            padding: 10px 40px 10px 16px;
+            font-family: 'DM Sans', sans-serif;
+            font-size: 14px;
+            cursor: pointer;
+            flex: 1;
+            min-width: 220px;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' fill='none'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%238b949e' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 14px center;
+            transition: border-color .2s;
+        }
+
+        select#faseLavoura:focus {
+            outline: none;
+            border-color: var(--accent);
+        }
+
+        #fase-info {
+            font-size: 12px;
+            color: var(--txt2);
+            font-family: 'DM Mono', monospace;
+            padding: 8px 14px;
+            background: var(--bg3);
+            border-radius: 8px;
+            display: none;
+        }
+
+        /* ── ALERTAS ───────────────────────── */
+        .alertas-section {
+            animation: fadeUp .6s .3s ease both;
+        }
+
+        .alertas-header {
+            font-family: 'Fraunces', serif;
+            font-size: 18px;
+            font-weight: 300;
+            color: var(--txt);
+            margin-bottom: 14px;
+        }
+
+        #alerta {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .alerta-item {
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+            padding: 14px 18px;
+            border-radius: var(--radius);
+            font-size: 13.5px;
+            line-height: 1.5;
+            border-left: 3px solid transparent;
+            transition: transform .2s;
+        }
+
+        .alerta-item:hover { transform: translateX(2px); }
+
+        .alerta-ok     { background: var(--ok-bg);     border-color: var(--ok);     color: #b8f5c0; }
+        .alerta-warn   { background: var(--warn-bg);   border-color: var(--warn);   color: #f5d37b; }
+        .alerta-danger { background: var(--danger-bg); border-color: var(--danger); color: #ffa8a5; }
+
+        .alerta-icone { font-size: 16px; flex-shrink: 0; margin-top: 1px; }
+
+        /* ── FOOTER ────────────────────────── */
+        .rodape {
+            text-align: center;
+            font-family: 'DM Mono', monospace;
+            font-size: 11px;
+            color: var(--txt3);
+            padding-top: 12px;
+            border-top: 1px solid var(--border);
+        }
+
+        /* ── RESPONSIVE ─────────────────────── */
+        @media (max-width: 600px) {
+            .pagina { padding: 20px 16px 48px; gap: 20px; }
+            #map { height: 280px; }
+            .cards-grid { grid-template-columns: 1fr 1fr; }
+            .fase-box { flex-direction: column; align-items: flex-start; }
+        }
+    </style>
+</head>
+<body>
+<main class="pagina">
+
+    <!-- HEADER -->
+    <header class="topo">
+        <div>
+            <div class="topo-eyebrow">
+                <div class="pulse-dot"></div>
+                <span class="topo-tag">NDVI · AO VIVO</span>
+            </div>
+            <h1 class="topo-titulo">Monitor de <em>Lavoura</em></h1>
+        </div>
+        <div class="status-badge" id="status-geral">
+            <span class="dot"></span>
+            <span id="status-txt">Carregando…</span>
+        </div>
+    </header>
+
+    <!-- MAPA -->
+    <section class="mapa-section">
+        <div class="mapa-header">
+            <div>
+                <h2 class="mapa-titulo">Mapa da Plantação</h2>
+                <p class="mapa-sub">Satélite + sobreposição NDVI</p>
+            </div>
+            <div class="mapa-legenda">
+                <span class="legenda-item"><span class="legenda-cor" style="background:#f85149"></span>Crítico &lt; 0.3</span>
+                <span class="legenda-item"><span class="legenda-cor" style="background:#d29922"></span>Moderado 0.3–0.6</span>
+                <span class="legenda-item"><span class="legenda-cor" style="background:#3fb950"></span>Saudável &gt; 0.6</span>
+            </div>
+        </div>
+        <div class="mapa-wrap">
+            <div id="map"></div>
+            <div class="mapa-badge" id="ndvi-badge">
+                <span class="badge-label">NDVI MÉDIO</span>
+                <span class="badge-valor" id="ndvi-badge-valor">—</span>
+            </div>
+            <div class="mapa-loading" id="mapaLoading">
+                <div class="spinner"></div>
+                <span>Carregando dados NDVI…</span>
+            </div>
+        </div>
+    </section>
+
+    <!-- CARDS -->
+    <section class="cards-grid">
+
+        <!-- NDVI -->
+        <div class="card">
+            <span class="card-eyebrow">Vegetação</span>
+            <span class="card-title">Índice NDVI</span>
+            <div class="card-valor" id="ndvi-valor">—</div>
+            <div id="ndvi-pill"></div>
+            <div class="ndvi-bar-wrap">
+                <div class="ndvi-bar-fill" id="ndvi-bar"></div>
+            </div>
+        </div>
+
+        <!-- TEMPERATURA -->
+        <div class="card">
+            <span class="card-eyebrow">Clima</span>
+            <span class="card-title">Temperatura</span>
+            <div class="card-valor" id="clima-temp">—</div>
+            <span class="card-sub">mín · máx °C</span>
+        </div>
+
+        <!-- CHUVA -->
+        <div class="card">
+            <span class="card-eyebrow">Precipitação</span>
+            <span class="card-title">Chuva Acumulada</span>
+            <div class="card-valor" id="clima-chuva">—</div>
+            <span class="card-sub">milímetros no período</span>
+        </div>
+
+        <!-- SOLO -->
+        <div class="card">
+            <span class="card-eyebrow">Solo</span>
+            <span class="card-title">Umidade do Solo</span>
+            <div class="card-valor" id="clima-solo">—</div>
+            <span class="card-sub">camada 7–28 cm</span>
+        </div>
+
+    </section>
+
+    <!-- FASE DA LAVOURA -->
+    <section class="fase-section">
+        <div class="fase-box">
+            <span class="fase-label-txt">Fase atual da lavoura</span>
+            <select id="faseLavoura">
+                <option value="">Selecione a fase…</option>
+                <option value="floracao">🌸 Floração</option>
+                <option value="frutificacao">🫘 Frutificação</option>
+                <option value="maturacao">☕ Maturação</option>
+                <option value="colheita">🌾 Colheita</option>
+                <option value="pos-colheita">🪴 Pós-colheita / Repouso</option>
+            </select>
+            <div id="fase-info"></div>
+        </div>
+    </section>
+
+    <!-- ALERTAS -->
+    <section class="alertas-section">
+        <h2 class="alertas-header">Diagnóstico</h2>
+        <div id="alerta"></div>
+    </section>
+
+    <footer class="rodape">
+        Dados: Open-Meteo · Google Earth Engine · Esri Satellite &nbsp;·&nbsp; Atualizado automaticamente 
+       <br> Feito por Layon, Cauã, Thiago e Marcos 
+    </footer>
+
+</main>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="Main.js"></script>
+<script>
+    /* ── Fase da lavoura ─────────────────────────────── */
+  const faseInfo = {
+    floracao:      'Período crítico: evite estresse hídrico. Ideal 18–23 °C.',
+    frutificacao:  'Demanda hídrica alta. Monitore solo diariamente.',
+    maturacao:     'Reduza irrigação. Chuva excessiva compromete qualidade.',
+    colheita:      'Evite umidade excessiva para não favorecer fungos.',
+    'pos-colheita':'Adubação e podas recomendadas. Solo pode descansar.',
+};
+
+function criarAlertaFase(tipo, icone, msg) {
+    const div = document.createElement('div');
+    div.className = `alerta-item alerta-${tipo} alerta-fase`;
+    div.innerHTML = `<span class="alerta-icone">${icone}</span><span>${msg}</span>`;
+    return div;
+}
+
+function removerAlertasFase() {
+    document.querySelectorAll('.alerta-fase').forEach(el => el.remove());
+}
+
+function gerarAlertasFase(fase) {
+    removerAlertasFase();
+
+    const alertaEl = document.getElementById('alerta');
+    if (!alertaEl || !fase) return;
+
+    const dados = window.appData;
+    const clima = dados?.clima;
+    const ndvi  = dados?.ndvi;
+
+    const temp    = clima?.ultimaTempMax ?? null;
+    const tempMin = clima?.ultimaTempMin ?? null;
+    const chuva   = clima?.totalChuva ?? null;
+    const solo    = clima?.umidadeSoloAtual ?? null;
+    const ndviVal = ndvi?.mediaNdvi ?? null;
+
+    const alertas = [];
+
+    if (fase === 'floracao') {
+        if (solo !== null && solo < 0.30)
+            alertas.push({ tipo: 'danger', icone: '🚨', msg: 'Floração: umidade do solo abaixo do ideal (<30%). Risco de queda de flores — irrigue imediatamente.' });
+        else
+            alertas.push({ tipo: 'ok', icone: '✅', msg: 'Floração: umidade do solo adequada para o período crítico.' });
+
+        if (temp !== null && (temp > 23 || tempMin < 18))
+            alertas.push({ tipo: 'warn', icone: '⚠️', msg: `Floração: temperatura fora da faixa ideal (18–23 °C). Atual: ${tempMin}°–${temp}°. Pode reduzir pegamento dos frutos.` });
+        else if (temp !== null)
+            alertas.push({ tipo: 'ok', icone: '✅', msg: `Floração: temperatura dentro da faixa ideal (${tempMin}°–${temp}°C).` });
+
+        if (ndviVal !== null && ndviVal < 0.5)
+            alertas.push({ tipo: 'warn', icone: '⚠️', msg: `Floração: NDVI baixo (${ndviVal.toFixed(2)}). Vigor vegetativo comprometido pode afetar a produtividade da florada.` });
+    }
+
+    if (fase === 'frutificacao') {
+        if (solo !== null && solo < 0.35)
+            alertas.push({ tipo: 'danger', icone: '🚨', msg: 'Frutificação: fase de alta demanda hídrica. Solo abaixo de 35% — irrigação urgente.' });
+        else
+            alertas.push({ tipo: 'ok', icone: '✅', msg: 'Frutificação: solo com boa umidade para o desenvolvimento dos frutos.' });
+
+        if (chuva !== null && chuva < 5)
+            alertas.push({ tipo: 'warn', icone: '⚠️', msg: 'Frutificação: pouca chuva no período. Complemente com irrigação para garantir o crescimento dos grãos.' });
+
+        if (ndviVal !== null && ndviVal < 0.55)
+            alertas.push({ tipo: 'warn', icone: '⚠️', msg: `Frutificação: NDVI ${ndviVal.toFixed(2)} indica vegetação moderada. Verifique adubação foliar.` });
+        else if (ndviVal !== null)
+            alertas.push({ tipo: 'ok', icone: '✅', msg: `Frutificação: NDVI saudável (${ndviVal.toFixed(2)}). Planta com bom vigor.` });
+    }
+
+    if (fase === 'maturacao') {
+        if (chuva !== null && chuva > 30)
+            alertas.push({ tipo: 'danger', icone: '🚨', msg: `Maturação: excesso de chuva (${chuva.toFixed(1)} mm). Risco de ferrugem e perda de qualidade do grão. Revise drenagem.` });
+        else if (chuva !== null)
+            alertas.push({ tipo: 'ok', icone: '✅', msg: 'Maturação: precipitação dentro do aceitável. Reduza irrigação gradualmente.' });
+
+        if (solo !== null && solo > 0.45)
+            alertas.push({ tipo: 'warn', icone: '⚠️', msg: 'Maturação: solo muito úmido. Suspenda irrigação para favorecer uniformidade na maturação.' });
+
+        if (temp !== null && temp > 30)
+            alertas.push({ tipo: 'warn', icone: '⚠️', msg: `Maturação: calor elevado (${temp}°C). Pode acelerar maturação de forma desuniforme.` });
+    }
+
+    if (fase === 'colheita') {
+        if (chuva !== null && chuva > 10)
+            alertas.push({ tipo: 'danger', icone: '🚨', msg: `Colheita: chuva recente (${chuva.toFixed(1)} mm). Aguarde solo secar para evitar perdas e proliferação de fungos.` });
+        else
+            alertas.push({ tipo: 'ok', icone: '✅', msg: 'Colheita: condições de umidade favoráveis para a operação.' });
+
+        if (solo !== null && solo > 0.40)
+            alertas.push({ tipo: 'warn', icone: '⚠️', msg: 'Colheita: solo ainda úmido. Tráfego de máquinas pode compactar o terreno — avalie o timing.' });
+
+        if (temp !== null && temp > 32)
+            alertas.push({ tipo: 'warn', icone: '⚠️', msg: `Colheita: temperatura alta (${temp}°C). Prefira colher no início da manhã para preservar qualidade.` });
+    }
+
+    if (fase === 'pos-colheita') {
+        alertas.push({ tipo: 'ok', icone: '🪴', msg: 'Pós-colheita: momento ideal para adubação de reposição e podas de renovação.' });
+
+        if (solo !== null && solo < 0.20)
+            alertas.push({ tipo: 'warn', icone: '⚠️', msg: 'Pós-colheita: solo seco. Mantenha irrigação mínima para não comprometer a recuperação das plantas.' });
+
+        if (ndviVal !== null && ndviVal < 0.4)
+            alertas.push({ tipo: 'warn', icone: '⚠️', msg: `Pós-colheita: NDVI baixo (${ndviVal.toFixed(2)}). Planta debilitada — reforce nutrição e monitore pragas.` });
+        else if (ndviVal !== null)
+            alertas.push({ tipo: 'ok', icone: '✅', msg: `Pós-colheita: NDVI (${ndviVal.toFixed(2)}) indica boa reserva vegetativa para o próximo ciclo.` });
+    }
+
+    // Insere no topo do diagnóstico
+    const separador = document.createElement('div');
+    separador.className = 'alerta-item alerta-warn alerta-fase';
+    separador.style.cssText = 'font-size:11px; opacity:.7; padding: 6px 18px;';
+    separador.innerHTML = `<span class="alerta-icone">📋</span><span>Alertas da fase selecionada</span>`;
+    alertaEl.prepend(separador);
+
+    alertas.reverse().forEach(a => {
+        const el = criarAlertaFase(a.tipo, a.icone, a.msg);
+        alertaEl.prepend(el);
+    });
+}
+
+document.getElementById('faseLavoura').addEventListener('change', e => {
+    const el = document.getElementById('fase-info');
+    const fase = e.target.value;
+
+    if (fase) {
+        el.textContent = faseInfo[fase] || '';
+        el.style.display = 'block';
+    } else {
+        el.style.display = 'none';
+        removerAlertasFase();
+        return;
+    }
+
+    // Se os dados já estão prontos, gera na hora
+    // Se não, aguarda o evento
+    if (window.appData) {
+        gerarAlertasFase(fase);
+    } else {
+        document.addEventListener('appDataReady', () => gerarAlertasFase(fase), { once: true });
+    }
+});
+
+    /* ── appDataReady ────────────────────────────────── */
+    document.addEventListener('appDataReady', () => {
+        const { ndvi, clima } = window.appData;
+
+        // Esconde loading do mapa
+        const loading = document.getElementById('mapaLoading');
+        if (loading) loading.style.display = 'none';
+
+        /* ── CARD NDVI ──────────── */
+        if (ndvi) {
+            const v = ndvi.mediaNdvi;
+
+            // Valor
+            const el = document.getElementById('ndvi-valor');
+            if (el) el.textContent = v.toFixed(3);
+
+            // Badge no mapa
+            const bv = document.getElementById('ndvi-badge-valor');
+            if (bv) bv.textContent = v.toFixed(2);
+            const badge = document.getElementById('ndvi-badge');
+            if (badge) badge.style.display = 'flex';
+
+            // Pill de saúde
+            const pill = document.getElementById('ndvi-pill');
+            if (pill) {
+                let cls, label;
+                if (v > 0.6)       { cls = 'ok';     label = '✓ Saudável'; }
+                else if (v >= 0.3) { cls = 'warn';   label = '⚠ Moderado'; }
+                else               { cls = 'danger';  label = '✕ Crítico';  }
+                pill.innerHTML = `<span class="ndvi-pill ${cls}">${label}</span>`;
+            }
+
+            // Barra de progresso
+            const bar = document.getElementById('ndvi-bar');
+            if (bar) {
+                const pct = Math.min(v * 100, 100);
+                const cor = v > 0.6 ? 'var(--ok)' : v >= 0.3 ? 'var(--warn)' : 'var(--danger)';
+                bar.style.width = pct + '%';
+                bar.style.background = cor;
+            }
+
+            // Cor do valor NDVI
+            if (el) {
+                el.style.color = v > 0.6 ? 'var(--ok)' : v >= 0.3 ? 'var(--warn)' : 'var(--danger)';
+            }
+        } else {
+            const el = document.getElementById('ndvi-valor');
+            if (el) { el.textContent = 'N/D'; el.style.color = 'var(--txt3)'; }
+        }
+
+        /* ── CARDS CLIMA ────────── */
+        if (clima) {
+            const tMin = clima.ultimaTempMin ?? '--';
+            const tMax = clima.ultimaTempMax ?? '--';
+            const tempEl = document.getElementById('clima-temp');
+            if (tempEl) tempEl.textContent = `${tMin}° – ${tMax}°`;
+
+            const chuvaEl = document.getElementById('clima-chuva');
+            if (chuvaEl) chuvaEl.textContent =
+                clima.totalChuva != null ? `${Number(clima.totalChuva).toFixed(1)} mm` : '— mm';
+
+            const soloEl = document.getElementById('clima-solo');
+            if (soloEl) soloEl.textContent =
+                clima.umidadeSoloAtual != null
+                    ? `${(clima.umidadeSoloAtual * 100).toFixed(0)}%`
+                    : '— %';
+        }
+
+        /* ── STATUS GERAL ────────── */
+        const statusEl = document.getElementById('status-geral');
+        const statusTxt = document.getElementById('status-txt');
+        if (statusEl && statusTxt) {
+            let cls, txt;
+            if (ndvi && clima) {
+                const v = ndvi.mediaNdvi;
+                const s = clima.umidadeSoloAtual;
+                if (v > 0.6 && s > 0.35)       { cls = 'ok';     txt = 'Plantação Saudável'; }
+                else if (v >= 0.3 && s >= 0.2) { cls = 'warn';   txt = 'Atenção Necessária'; }
+                else                           { cls = 'danger'; txt = 'Estado Crítico'; }
+            } else if (clima) {
+                const s = clima.umidadeSoloAtual;
+                cls = s >= 0.3 ? 'warn' : 'danger';
+                txt = 'NDVI Indisponível';
+            } else {
+                cls = 'warn'; txt = 'Sem dados';
+            }
+            statusEl.className = `status-badge ${cls}`;
+            statusTxt.textContent = txt;
+        }
+    });
+</script>
+</body>
+</html>

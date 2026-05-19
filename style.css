@@ -1,0 +1,305 @@
+/* =============================================
+   RESET & VARIÁVEIS
+   ============================================= */
+*, *::before, *::after {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+:root {
+    --verde:       #2ecc71;
+    --amarelo:     #f1c40f;
+    --vermelho:    #e74c3c;
+    --fundo:       #0d1117;
+    --superficie:  #161b22;
+    --superficie2: #1c2128;
+    --borda:       #30363d;
+    --texto:       #e6edf3;
+    --texto-muted: #8b949e;
+    --fonte-titulo: 'Syne', sans-serif;
+    --fonte-mono:   'Space Mono', monospace;
+    --raio:        8px;
+}
+
+body {
+    background: var(--fundo);
+    color: var(--texto);
+    font-family: var(--fonte-mono);
+    min-height: 100vh;
+    padding: 2rem;
+}
+
+/* =============================================
+   LAYOUT PRINCIPAL
+   ============================================= */
+.pagina {
+    max-width: 1100px;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 2rem;
+}
+
+/* =============================================
+   CABEÇALHO
+   ============================================= */
+.topo {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 1rem;
+    padding-bottom: 1.5rem;
+    border-bottom: 1px solid var(--borda);
+    animation: fadeUp 0.5s ease both;
+}
+
+.topo-tag {
+    font-size: 0.65rem;
+    letter-spacing: 0.18em;
+    color: var(--verde);
+    text-transform: uppercase;
+    border: 1px solid var(--verde);
+    padding: 0.15rem 0.5rem;
+    border-radius: 2px;
+    display: inline-block;
+    margin-bottom: 0.4rem;
+}
+
+.topo-titulo {
+    font-family: var(--fonte-titulo);
+    font-size: 2rem;
+    font-weight: 800;
+    color: var(--texto);
+    line-height: 1;
+}
+
+/* Status chip */
+.topo-status {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.75rem;
+    letter-spacing: 0.05em;
+    background: var(--superficie);
+    border: 1px solid var(--borda);
+    padding: 0.4rem 0.8rem;
+    border-radius: 100px;
+}
+
+.status-ponto {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--texto-muted);
+    flex-shrink: 0;
+}
+
+.topo-status.status-ok   .status-ponto { background: var(--verde);    animation: pulsar 2s infinite; }
+.topo-status.status-warn .status-ponto { background: var(--amarelo);  animation: pulsar 1.5s infinite; }
+.topo-status.status-danger .status-ponto { background: var(--vermelho); animation: pulsar 1s infinite; }
+
+.topo-status.status-ok     { border-color: #2ecc7144; color: var(--verde); }
+.topo-status.status-warn   { border-color: #f1c40f44; color: var(--amarelo); }
+.topo-status.status-danger { border-color: #e74c3c44; color: var(--vermelho); }
+
+/* =============================================
+   SEÇÃO DO MAPA
+   ============================================= */
+.mapa-section {
+    animation: fadeUp 0.6s ease 0.1s both;
+}
+
+.mapa-header {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 1rem;
+    margin-bottom: 1rem;
+}
+
+.mapa-titulo {
+    font-family: var(--fonte-titulo);
+    font-size: 1.2rem;
+    font-weight: 700;
+    color: var(--texto);
+}
+
+.mapa-sub {
+    font-size: 0.7rem;
+    color: var(--texto-muted);
+    margin-top: 0.2rem;
+    letter-spacing: 0.03em;
+}
+
+/* Legenda */
+.mapa-legenda {
+    display: flex;
+    gap: 1.2rem;
+    flex-wrap: wrap;
+    align-items: center;
+}
+
+.legenda-item {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.7rem;
+    color: var(--texto-muted);
+}
+
+.legenda-cor {
+    width: 10px;
+    height: 10px;
+    border-radius: 2px;
+    flex-shrink: 0;
+}
+
+/* Container do mapa */
+.mapa-container {
+    position: relative;
+    border-radius: var(--raio);
+    overflow: hidden;
+    border: 1px solid var(--borda);
+    box-shadow: 0 0 0 1px #ffffff06, 0 12px 40px #00000070;
+}
+
+/* DIV obrigatória para o Leaflet */
+#map {
+    width: 100%;
+    height: 520px;
+    background: var(--superficie);
+}
+
+/* Badge NDVI sobre o mapa */
+.mapa-badge {
+    position: absolute;
+    top: 14px;
+    left: 14px;
+    z-index: 500;
+    background: rgba(13, 17, 23, 0.85);
+    border: 1px solid rgba(46, 204, 113, 0.35);
+    border-radius: var(--raio);
+    padding: 10px 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    backdrop-filter: blur(6px);
+}
+
+.badge-label {
+    font-size: 0.6rem;
+    letter-spacing: 0.15em;
+    color: var(--texto-muted);
+    text-transform: uppercase;
+}
+
+.badge-valor {
+    font-family: var(--fonte-titulo);
+    font-size: 1.6rem;
+    font-weight: 800;
+    color: var(--verde);
+    line-height: 1;
+}
+
+/* Loading overlay */
+.mapa-loading {
+    position: absolute;
+    inset: 0;
+    background: rgba(13, 17, 23, 0.75);
+    backdrop-filter: blur(4px);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 1rem;
+    font-size: 0.75rem;
+    color: var(--texto-muted);
+    letter-spacing: 0.08em;
+    z-index: 1000;
+}
+
+.loading-spinner {
+    width: 28px;
+    height: 28px;
+    border: 2px solid var(--borda);
+    border-top-color: var(--verde);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+}
+
+/* =============================================
+   ALERTAS
+   ============================================= */
+.alertas-section {
+    animation: fadeUp 0.6s ease 0.2s both;
+}
+
+#alerta {
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+}
+
+.alerta-item {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.85rem 1.1rem;
+    border-radius: var(--raio);
+    font-size: 0.8rem;
+    letter-spacing: 0.02em;
+    border: 1px solid;
+}
+
+.alerta-icone {
+    font-size: 1.1rem;
+    flex-shrink: 0;
+}
+
+.alerta-ok {
+    background: #0d2818;
+    border-color: #1a4a2e;
+    color: #7ee8a2;
+}
+
+.alerta-warn {
+    background: #2a2000;
+    border-color: #4a3800;
+    color: #f5d76e;
+}
+
+.alerta-danger {
+    background: #2a0d0d;
+    border-color: #4a1a1a;
+    color: #f08080;
+}
+
+/* =============================================
+   ANIMAÇÕES
+   ============================================= */
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+@keyframes fadeUp {
+    from { opacity: 0; transform: translateY(14px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes pulsar {
+    0%, 100% { opacity: 1; }
+    50%       { opacity: 0.35; }
+}
+
+/* =============================================
+   RESPONSIVO
+   ============================================= */
+@media (max-width: 600px) {
+    body { padding: 1rem; }
+    .topo-titulo { font-size: 1.5rem; }
+    #map { height: 360px; }
+    .mapa-header { flex-direction: column; align-items: flex-start; }
+}
