@@ -1,7 +1,3 @@
-// ================================================
-// Main.js — versão browser (sem require/axios)
-// ================================================
-
 const PLANTATION_CORDS = [
     [-45.74539479834294,  -22.36486843537137],
     [-45.744858356539964, -22.365076793180002],
@@ -19,9 +15,7 @@ const hoje = new Date();
 hoje.setDate(hoje.getDate() - 45);
 const DATA = `${hoje.getFullYear()}-${String(hoje.getMonth() + 1).padStart(2, '0')}-${String(hoje.getDate()).padStart(2, '0')}`;
 
-// ------------------------------------------------
-// Inicializa o mapa Leaflet com satélite
-// ------------------------------------------------
+
 const map = L.map('map').setView([LAT, LON], 15);
 
 L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
@@ -29,16 +23,15 @@ L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/
     attribution: 'Esri'
 }).addTo(map);
 
-// ------------------------------------------------
-// obterDadosCafe — reimplementação para browser
-// (substitui o Clima.js que usava npm)
-// ------------------------------------------------
-async function obterDadosCafe(lat, lon, data) {
+
+async function obterDadosCafe(lat, lon, dataInicio) {
     const url = new URL('https://api.open-meteo.com/v1/forecast');
-    url.searchParams.set('latitude',  lat);
-    url.searchParams.set('longitude', lon);
-    url.searchParams.set('start_date', data);
-    url.searchParams.set('end_date',   data);
+    const hoje = new Date().toISOString().split('T')[0];
+
+    url.searchParams.set('latitude',   lat);
+    url.searchParams.set('longitude',  lon);
+    url.searchParams.set('start_date', dataInicio); // 45 dias atrás
+    url.searchParams.set('end_date',   hoje);        // até hoje
     url.searchParams.set('daily',   'temperature_2m_max,temperature_2m_min,precipitation_sum');
     url.searchParams.set('hourly',  'soil_moisture_7_to_28cm');
     url.searchParams.set('timezone', 'America/Sao_Paulo');
@@ -47,21 +40,30 @@ async function obterDadosCafe(lat, lon, data) {
     if (!resp.ok) throw new Error('Erro ao buscar clima: ' + resp.status);
     const json = await resp.json();
 
+    // Pega o último dia disponível para temperatura
+    const ultimoDia = json.daily.temperature_2m_max.length - 1;
+
+    // Soma a chuva acumulada no período inteiro
+    const chuvaTotalPeriodo = json.daily.precipitation_sum
+        .reduce((acc, v) => acc + (v ?? 0), 0);
+
+    // Pega a leitura mais recente de umidade do solo
+    const soloArr = json.hourly.soil_moisture_7_to_28cm.filter(v => v !== null);
+    const umidadeSoloAtual = soloArr.length > 0 ? soloArr[soloArr.length - 1] : null;
+
     return {
         diario: {
-            tempMax:   json.daily.temperature_2m_max,
-            tempMin:   json.daily.temperature_2m_min,
-            somaChuva: json.daily.precipitation_sum
+            tempMax:   json.daily.temperature_2m_max[ultimoDia],
+            tempMin:   json.daily.temperature_2m_min[ultimoDia],
+            somaChuva: chuvaTotalPeriodo
         },
         horario: {
-            umidadeSolo: json.hourly.soil_moisture_7_to_28cm
+            umidadeSolo: umidadeSoloAtual
         }
     };
 }
 
-// ------------------------------------------------
-// integrarDados — chama a API NDVI local
-// ------------------------------------------------
+
 async function integrarDados() {
     try {
         const response = await fetch('https://meu-api-earthengine.onrender.com/ndvi', {
@@ -110,17 +112,14 @@ async function integrarDados() {
     }
 }
 
-// ------------------------------------------------
-// mostrarRelatorioClima — busca clima e gera alertas
-// ------------------------------------------------
 async function mostrarRelatorioClima(dadosProdutor) {
     try {
         const dados = await obterDadosCafe(LAT, LON, DATA);
 
-        const ultimaTempMax    = dados.diario.tempMax[0];
-        const ultimaTempMin    = dados.diario.tempMin[0];
-        const totalChuva       = dados.diario.somaChuva[0];
-        const umidadeSoloAtual = dados.horario.umidadeSolo[0];
+        const ultimaTempMax    = dados.diario.tempMax;
+        const ultimaTempMin    = dados.diario.tempMin;
+        const totalChuva       = dados.diario.somaChuva;
+        const umidadeSoloAtual = dados.horario.umidadeSolo;
 
         // --- Monta window.appData para o HTML usar ---
         window.appData = {
@@ -213,9 +212,6 @@ async function mostrarRelatorioClima(dadosProdutor) {
     }
 }
 
-// ------------------------------------------------
-// main
-// ------------------------------------------------
 async function main() {
     const dadosProdutor = await integrarDados();
     await mostrarRelatorioClima(dadosProdutor);
